@@ -10,7 +10,7 @@ import { Position, PositionDocument } from './schemas/position.schema';
 import { UserService } from 'src/user/user.service';
 import { RoomMessagesHelper } from './helpers/roomMessages.helper';
 import { UpdateUserPositionDto } from './dtos/updatePosition.dto';
-import { ToggleMuteDto } from './dtos/toggleMute';
+import { ToggleMuteDto } from './dtos/toggleMute.dto';
 
 @Injectable()
 export class RoomService {
@@ -90,7 +90,7 @@ export class RoomService {
     this.logger.debug(`updateUserMute - ${dto.link} - ${dto.userId}`);
     const meet = await this._getMeet(dto.link);
     const user = await this.userService.getUserById(dto.userId);
-    await this.positionModel.updateMany({ user, meet }, { muted: !dto.muted });
+    await this.positionModel.updateMany({ user, meet }, { muted: dto.muted });
   }
 
   async _getMeet(link: string) {

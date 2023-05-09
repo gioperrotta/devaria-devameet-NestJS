@@ -1,5 +1,4 @@
 import {
-  OnGatewayConnection,
   OnGatewayDisconnect,
   OnGatewayInit,
   SubscribeMessage,
@@ -11,7 +10,8 @@ import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { JoinRoomDto } from './dtos/joinRoom.dto';
 import { UpdateUserPositionDto } from './dtos/updatePosition.dto';
-import { ToggleMuteDto } from './dtos/toggleMute';
+import { ToggleMuteDto } from './dtos/toggleMute.dto';
+import { UsersPositionHelper } from './helpers/usersPosition.heper';
 
 type ActiveSocketType = {
   room: string;
@@ -20,28 +20,28 @@ type ActiveSocketType = {
 };
 
 @WebSocketGateway({ cors: true })
-export class RoomGateway
-  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
-{
+export class RoomGateway implements OnGatewayInit, OnGatewayDisconnect {
   constructor(private readonly service: RoomService) {}
 
   @WebSocketServer() wss: Server;
+
   private logger = new Logger(RoomGateway.name);
   private activeSockets: ActiveSocketType[] = [];
-
-  afterInit(server: any) {
-    this.logger.log('Gateway Initialized');
-  }
-
-  handleConnection(client: any) {
-    this.logger.debug(`Client: ${client.id} connected`);
-  }
+  private userPosition = new UsersPositionHelper();
 
   async handleDisconnect(client: any) {
     const existingOnSocket = this.activeSockets.find(
       (socket) => socket.id === client.id,
     );
+
     if (!existingOnSocket) return;
+
+    const link = existingOnSocket.room;
+    const userId = existingOnSocket.userId;
+    const users = await this.service.listUsersPositionByLink(link);
+    const { x, y } = users.find((u) => u.clientId === client.id);
+    this.userPosition.saveLastUserPosition(link, userId, x, y);
+
     this.activeSockets = this.activeSockets.filter(
       (socket) => socket.id !== client.id,
     );
@@ -54,6 +54,9 @@ export class RoomGateway
     this.logger.debug(`Client: ${client.id} disconnected`);
   }
 
+  afterInit(server: any) {
+    this.logger.log('Gateway Initialized', server);
+  }
   @SubscribeMessage('join')
   async handleJoin(client: Socket, payload: JoinRoomDto) {
     const { link, userId } = payload;
@@ -64,11 +67,12 @@ export class RoomGateway
 
     if (!existingOnSocket) {
       this.activeSockets.push({ room: link, id: client.id, userId });
+      const { x, y } = this.userPosition.getInitialPosition(userId, link);
       const dto = {
         link,
         userId,
-        x: 2,
-        y: 2,
+        x,
+        y,
         orientation: 'down',
       } as UpdateUserPositionDto;
 
@@ -78,6 +82,7 @@ export class RoomGateway
       this.wss.emit(`${link}-update-user-list`, { users });
       client.broadcast.emit(`${link}-add-user`, { user: client.id });
     }
+
     this.logger.debug(`Socket client: ${client.id} start to join room ${link}`);
   }
 
@@ -91,8 +96,8 @@ export class RoomGateway
     this.wss.emit(`${link}-update-user-list`, { users });
   }
 
-  @SubscribeMessage('toggle-mute-user')
-  async handleToggleMute(client: Socket, payload: ToggleMuteDto) {
+  @SubscribeMessage('toggl-mute-user')
+  async handleToglMute(client: Socket, payload: ToggleMuteDto) {
     const { link } = payload;
     await this.service.updateUserMute(payload);
     const users = await this.service.listUsersPositionByLink(link);
