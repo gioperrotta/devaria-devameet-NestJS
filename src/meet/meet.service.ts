@@ -25,6 +25,13 @@ export class MeetService {
     return this.model.find({ user: userId });
   }
 
+  async getMeetById(userId: string, meetId: string) {
+    this.logger.debug(`getMeetById - ${userId} - ${meetId}`);
+    const user = await this.userService.getUserById(userId);
+    const meet = await this.model.findOne({ user, _id: meetId });
+    return meet;
+  }
+
   async createMeet(userId: string, dto: CreateMeetDto) {
     this.logger.debug('createMeetByUser - ' + userId);
 
@@ -49,7 +56,6 @@ export class MeetService {
     this.logger.debug(`getMeetObjects - ${userId} - ${meetId}`);
     const user = await this.userService.getUserById(userId);
     const meet = await this.model.findOne({ user, _id: meetId });
-
     return await this.objectModel.find({ meet });
   }
 

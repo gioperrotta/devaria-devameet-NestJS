@@ -33,7 +33,7 @@ export class UpdateMeetObjectDto {
   y: number;
 
   @IsNumber({}, { message: MeetMessagesHelper.UPDATE_ZINDEX_VALIDATION })
-  zIndex: number;
+  zindex: number;
 
   @IsString({ message: MeetMessagesHelper.UPDATE_ORIENTATION_VALIDATION })
   orientation: string;
